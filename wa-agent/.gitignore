@@ -1,0 +1,30 @@
+# Binário compilado
+wa-agent
+wa-agent.exe
+
+# Variáveis de ambiente — NUNCA commitar
+.env
+.env.local
+.env.*.local
+
+# Go
+go.sum
+
+# Dependências baixadas localmente
+vendor/
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# ngrok config local
+ngrok.yml

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f11; --bg2: #161619; --bg3: #1e1e22; --bg4: #26262c;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+  --text: #f0efe8; --text2: #9a9890; --text3: #5a5856;
+  --green: #25d366; --green2: #1aac52; --green-dim: rgba(37,211,102,0.12);
+  --blue: #53bdeb; --amber: #f0a500; --red: #e25c5c;
+  --mono: 'IBM Plex Mono', monospace; --sans: 'DM Sans', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+.topbar{height:44px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0}
+.topbar-logo{font-family:var(--mono);font-size:13px;color:var(--green);letter-spacing:.05em}
+.sep{width:1px;height:16px;background:var(--border2)}
+.topbar-info{font-size:12px;color:var(--text3);font-family:var(--mono)}
+.conn-indicator{display:flex;align-items:center;gap:5px;font-size:12px;font-family:var(--mono);margin-left:auto}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:var(--red);transition:background .3s}
+.conn-dot.connected{background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.main{display:flex;flex:1;overflow:hidden}
+
+.sidebar{width:280px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-header{padding:16px 16px 12px;border-bottom:1px solid var(--border)}
+.sidebar-title{font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+.new-conv-form{display:flex;gap:6px}
+.new-conv-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:12px;font-family:var(--mono);color:var(--text);min-width:0}
+.new-conv-input:focus{outline:none;border-color:rgba(37,211,102,.4)}
+.new-conv-input::placeholder{color:var(--text3)}
+.add-btn{background:var(--green-dim);border:1px solid var(--green);border-radius:6px;color:var(--green);font-size:12px;font-family:var(--mono);padding:0 10px;cursor:pointer;white-space:nowrap}
+.conv-list{flex:1;overflow-y:auto}
+.conv-list::-webkit-scrollbar{width:3px}
+.conv-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.conv-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;position:relative}
+.conv-item:hover{background:var(--bg3)}
+.conv-item.active{background:var(--bg3)}
+.conv-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--green)}
+.conv-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.conv-name{font-size:13px;font-weight:500}
+.conv-time{font-size:10px;color:var(--text3);font-family:var(--mono)}
+.conv-preview{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.unread-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+
+.chat-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.chat-header{height:60px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;border:1px solid var(--border2);flex-shrink:0}
+.chat-info{flex:1}
+.chat-name{font-size:14px;font-weight:500}
+.chat-sub{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.header-tag{font-size:10px;font-family:var(--mono);padding:3px 8px;border-radius:3px;border:1px solid var(--green);color:var(--green);background:rgba(37,211,102,.06)}
+
+.messages-wrap{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:6px}
+.messages-wrap::-webkit-scrollbar{width:3px}
+.messages-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.sys-msg{text-align:center;font-size:11px;color:var(--text3);font-family:var(--mono);padding:6px 14px;background:var(--bg3);border-radius:4px;align-self:center;margin:4px 0}
+.msg-row{display:flex}
+.msg-row.out{justify-content:flex-end}
+.msg-row.in{justify-content:flex-start}
+.bubble{max-width:68%;padding:9px 13px;border-radius:12px;font-size:13.5px;line-height:1.55}
+.msg-row.out .bubble{background:#1e3a26;border:1px solid rgba(37,211,102,.2);border-bottom-right-radius:3px;color:#d4f0dc}
+.msg-row.in .bubble{background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:3px;color:var(--text)}
+.msg-meta{font-size:10.5px;color:var(--text3);font-family:var(--mono);display:flex;align-items:center;gap:4px;margin-top:3px;padding:0 2px}
+.msg-row.out .msg-meta{justify-content:flex-end}
+.ticks{font-size:13px;line-height:1}
+.ticks.sent{color:var(--text3)}
+.ticks.delivered{color:var(--text2)}
+.ticks.read{color:var(--blue)}
+.spinner{width:11px;height:11px;border:1.5px solid var(--border2);border-top-color:var(--green);border-radius:50%;animation:spin .75s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.msg-enter{animation:msgIn .18s ease-out}
+@keyframes msgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.empty-chat{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text3)}
+.empty-chat p{font-size:13px;font-family:var(--mono)}
+
+.composer{background:var(--bg2);border-top:1px solid var(--border);padding:12px 20px;display:flex;gap:10px;align-items:flex-end;flex-shrink:0}
+.composer-input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 14px;font-size:13.5px;font-family:var(--sans);color:var(--text);resize:none;min-height:40px;max-height:120px;line-height:1.5;transition:border-color .15s}
+.composer-input:focus{outline:none;border-color:rgba(37,211,102,.4)}
+.composer-input::placeholder{color:var(--text3)}
+.send-btn{width:40px;height:40px;border-radius:8px;background:var(--green);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+.send-btn:hover{background:var(--green2)}
+.send-btn:disabled{background:var(--bg4);cursor:not-allowed}
+.send-btn svg{width:18px;height:18px;fill:#000}
+
+.log-panel{background:var(--bg);border-top:1px solid var(--border);padding:10px 20px;flex-shrink:0}
+.log-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.log-title{font-size:10px;font-family:var(--mono);color:var(--text3);letter-spacing:.1em;text-transform:uppercase}
+.log-sep{flex:1;height:1px;background:var(--border)}
+.log-clear{font-size:10px;font-family:var(--mono);color:var(--text3);background:none;border:none;cursor:pointer;padding:0}
+.log-clear:hover{color:var(--text2)}
+.log-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;height:64px;overflow-y:auto}
+.log-wrap::-webkit-scrollbar{width:3px}
+.log-wrap::-webkit-scrollbar-thumb{background:var(--border)}
+.log-line{font-size:11px;font-family:var(--mono);line-height:1.8;display:flex;gap:8px}
+.log-time{color:var(--text3);flex-shrink:0}
+.log-layer{flex-shrink:0}
+.log-layer.go{color:var(--green)}
+.log-layer.meta{color:var(--amber)}
+.log-layer.flutter{color:var(--blue)}
+.log-layer.ws{color:#c084fc}
+.log-layer.err{color:var(--red)}
+.log-msg{color:var(--text2)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-logo">WA//AGENT</span>
+  <div class="sep"></div>
+  <span class="topbar-info">Go backend · Meta Cloud API v21.0</span>
+  <div class="conn-indicator">
+    <div class="conn-dot" id="connDot"></div>
+    <span id="connLabel" style="color:var(--text3)">desconectado</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">iniciar conversa</div>
+      <div class="new-conv-form">
+        <input class="new-conv-input" id="newPhone" placeholder="+55 11 99999-0000" maxlength="20">
+        <button class="add-btn" id="addConvBtn">+ add</button>
+      </div>
+    </div>
+    <div class="conv-list" id="convList">
+      <div style="padding:20px;text-align:center;font-size:12px;color:var(--text3);font-family:var(--mono)">
+        aguardando mensagens...
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-wrap">
+    <div class="chat-header" id="chatHeader">
+      <div class="avatar" id="hAvatar">—</div>
+      <div class="chat-info">
+        <div class="chat-name" id="hName">Selecione uma conversa</div>
+        <div class="chat-sub" id="hSub"></div>
+      </div>
+      <span class="header-tag" id="hTag" style="display:none">WhatsApp</span>
+    </div>
+
+    <div class="messages-wrap" id="messages">
+      <div class="empty-chat">
+        <p>nenhuma conversa ativa</p>
+        <p style="font-size:11px;opacity:.5">mensagens recebidas aparecem aqui automaticamente</p>
+      </div>
+    </div>
+
+    <div class="composer">
+      <textarea class="composer-input" id="input" placeholder="Mensagem..." rows="1" disabled></textarea>
+      <button class="send-btn" id="sendBtn" disabled>
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </div>
+
+    <div class="log-panel">
+      <div class="log-header">
+        <span class="log-title">log em tempo real</span>
+        <div class="log-sep"></div>
+        <button class="log-clear" onclick="clearLog()">limpar</button>
+      </div>
+      <div class="log-wrap" id="logWrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+const conversations = {};
+let activePhone = null;
+let ws = null;
+let outCounter = 0;
+
+// Detecta se está rodando em localhost ou com domínio
+const backendHost = window.location.host;
+const wsProto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const WS_URL = `${wsProto}://${backendHost}/ws`;
+const API_URL = `${window.location.protocol}//${backendHost}/api/send`;
+
+// ── Logging ───────────────────────────────────────────────────────────────────
+function now() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') + ':' + d.getSeconds().toString().padStart(2,'0');
+}
+
+function log(layer, msg) {
+  const wrap = document.getElementById('logWrap');
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  const labels = { go:'[go]', meta:'[meta]', flutter:'[flutter]', ws:'[ws]', err:'[erro]' };
+  div.innerHTML = `<span class="log-time">${now()}</span><span class="log-layer ${layer}">${labels[layer]||'[sys]'}</span><span class="log-msg">${msg}</span>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  // Limita a 100 linhas
+  while (wrap.children.length > 100) wrap.removeChild(wrap.firstChild);
+}
+
+function clearLog() { document.getElementById('logWrap').innerHTML = ''; }
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connectWS() {
+  log('ws', `conectando em ${WS_URL}...`);
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    document.getElementById('connDot').classList.add('connected');
+    document.getElementById('connLabel').textContent = 'conectado';
+    document.getElementById('connLabel').style.color = 'var(--green)';
+    log('ws', 'WebSocket conectado ao backend Go');
+  };
+
+  ws.onclose = () => {
+    document.getElementById('connDot').classList.remove('connected');
+    document.getElementById('connLabel').textContent = 'reconectando...';
+    document.getElementById('connLabel').style.color = 'var(--amber)';
+    log('ws', 'conexão perdida — tentando reconectar em 3s...');
+    setTimeout(connectWS, 3000);
+  };
+
+  ws.onerror = (e) => {
+    log('err', 'erro no WebSocket — verifique se o backend Go está rodando');
+  };
+
+  ws.onmessage = (evt) => {
+    const data = JSON.parse(evt.data);
+    handleServerEvent(data);
+  };
+}
+
+function handleServerEvent(event) {
+  if (event.type === 'message_received') {
+    log('go', `mensagem recebida de ${event.from} (${event.from_name || 'desconhecido'})`);
+    log('meta', `wamid=${event.id} tipo=${event.msg_type}`);
+
+    const phone = event.from;
+    const name = event.from_name || phone;
+
+    if (!conversations[phone]) {
+      conversations[phone] = { name, phone, msgs: [], unread: 0 };
+    }
+
+    const msg = {
+      id: event.id,
+      dir: 'in',
+      text: event.text || (event.media_id ? `[${event.msg_type}]` : ''),
+      time: now(),
+      status: 'read',
+      type: event.msg_type,
+    };
+
+    conversations[phone].msgs.push(msg);
+    conversations[phone].unread++;
+
+    log('flutter', `ChatController.insertMessage(id=${event.id}, dir=in) → UI atualizada`);
+
+    if (activePhone === phone) {
+      conversations[phone].unread = 0;
+      appendMessage(msg);
+    }
+    renderConvList();
+
+  } else if (event.type === 'status_update') {
+    const status = event.status; // sent, delivered, read, failed
+    log('meta', `status update → msgId=${event.msg_id} status=${status}`);
+
+    // Atualiza em todas as conversas
+    Object.values(conversations).forEach(conv => {
+      conv.msgs.forEach(m => {
+        if (m.id === event.msg_id) {
+          m.status = status;
+          updateMsgStatus(event.msg_id, status);
+          log('flutter', `ChatController.updateMessage(id=${event.msg_id}, status=${status})`);
+        }
+      });
+    });
+  }
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+function renderConvList() {
+  const el = document.getElementById('convList');
+  const convs = Object.values(conversations);
+  if (!convs.length) {
+    el.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--text3);font-family:var(--mono)">aguardando mensagens...</div>';
+    return;
+  }
+  el.innerHTML = convs.map(c => {
+    const last = c.msgs[c.msgs.length - 1] || { text: '', time: '' };
+    const isActive = c.phone === activePhone;
+    return `<div class="conv-item ${isActive ? 'active' : ''}" onclick="selectConv('${c.phone}')">
+      <div class="conv-top">
+        <span class="conv-name">${c.name}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          ${c.unread ? '<div class="unread-dot"></div>' : ''}
+          <span class="conv-time">${last.time}</span>
+        </div>
+      </div>
+      <div class="conv-preview">${last.text || '…'}</div>
+      <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px">${c.phone}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectConv(phone) {
+  activePhone = phone;
+  const c = conversations[phone];
+  if (c) {
+    c.unread = 0;
+    document.getElementById('hAvatar').textContent = c.name.substring(0,2).toUpperCase();
+    document.getElementById('hName').textContent = c.name;
+    document.getElementById('hSub').textContent = c.phone;
+    document.getElementById('hTag').style.display = '';
+    document.getElementById('input').disabled = false;
+    document.getElementById('sendBtn').disabled = false;
+    renderMessages();
+  }
+  renderConvList();
+}
+
+function renderMessages() {
+  const el = document.getElementById('messages');
+  const c = conversations[activePhone];
+  if (!c) return;
+  el.innerHTML = `<div class="sys-msg">conversa com ${c.name} · ${c.phone} · WhatsApp Cloud API</div>` +
+    c.msgs.map(m => msgHtml(m)).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function msgHtml(m) {
+  return `<div class="msg-row ${m.dir} msg-enter" id="msg-${m.id}">
+    <div>
+      <div class="bubble">${escapeHtml(m.text)}</div>
+      <div class="msg-meta">
+        <span>${m.time}</span>
+        ${m.dir === 'out' ? ticksHtml(m.status) : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function appendMessage(msg) {
+  const el = document.getElementById('messages');
+  // Remove empty state
+  const empty = el.querySelector('.empty-chat');
+  if (empty) empty.remove();
+  const div = document.createElement('div');
+  div.innerHTML = msgHtml(msg);
+  el.appendChild(div.firstElementChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+function updateMsgStatus(id, status) {
+  const el = document.getElementById('msg-' + id);
+  if (!el) return;
+  const meta = el.querySelector('.msg-meta');
+  const timeEl = meta.querySelector('span');
+  const t = timeEl ? timeEl.textContent : now();
+  meta.innerHTML = `<span>${t}</span>${ticksHtml(status)}`;
+}
+
+function ticksHtml(status) {
+  if (status === 'sending') return '<span class="spinner"></span>';
+  if (status === 'sent') return '<span class="ticks sent">✓</span>';
+  if (status === 'delivered') return '<span class="ticks delivered">✓✓</span>';
+  if (status === 'read') return '<span class="ticks read">✓✓</span>';
+  if (status === 'failed') return '<span style="color:var(--red);font-size:11px;font-family:var(--mono)">!</span>';
+  return '';
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Send message ──────────────────────────────────────────────────────────────
+async function sendMessage() {
+  if (!activePhone) return;
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const c = conversations[activePhone];
+  const id = 'local-' + (++outCounter);
+  const msg = { id, dir: 'out', text, time: now(), status: 'sending' };
+
+  c.msgs.push(msg);
+  input.value = '';
+  input.style.height = '';
+  appendMessage(msg);
+
+  log('flutter', `ChatController.insertMessage(id=${id}, sending=true)`);
+  log('go', `POST /api/send → to=${activePhone}`);
+
+  try {
+    const resp = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: activePhone, text }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(errText);
+    }
+
+    const result = await resp.json();
+    const realId = result.msg_id || id;
+
+    // Atualiza o ID da mensagem para o ID real da Meta
+    msg.id = realId;
+    const el = document.getElementById('msg-' + id);
+    if (el) el.id = 'msg-' + realId;
+
+    msg.status = 'sent';
+    updateMsgStatus(realId, 'sent');
+    log('meta', `mensagem enviada → wamid=${realId}`);
+    log('flutter', `ChatController.updateMessage(id=${realId}, sentAt=${now()})`);
+
+  } catch (err) {
+    msg.status = 'failed';
+    updateMsgStatus(id, 'failed');
+    log('err', `falha no envio: ${err.message}`);
+  }
+}
+
+// ── Add conversation manually ─────────────────────────────────────────────────
+document.getElementById('addConvBtn').onclick = () => {
+  const input = document.getElementById('newPhone');
+  let phone = input.value.trim().replace(/\s+/g, '').replace(/[^+\d]/g, '');
+  if (!phone) return;
+  if (!phone.startsWith('+')) phone = '+55' + phone;
+  if (!conversations[phone]) {
+    conversations[phone] = { name: phone, phone, msgs: [], unread: 0 };
+    renderConvList();
+    log('go', `nova conversa iniciada para ${phone}`);
+  }
+  selectConv(phone);
+  input.value = '';
+};
+
+document.getElementById('newPhone').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('addConvBtn').click();
+});
+
+document.getElementById('sendBtn').onclick = sendMessage;
+document.getElementById('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+document.getElementById('input').addEventListener('input', function() {
+  this.style.height = '';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+log('flutter', 'UI inicializada → conectando ao backend Go...');
+connectWS();
+</script>
+</body>
+</html>
