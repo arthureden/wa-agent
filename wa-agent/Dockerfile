@@ -2,7 +2,7 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 COPY go.mod ./
-RUN go mod download
+RUN go mod tidy
 COPY . .
 RUN go build -o wa-agent .
 
